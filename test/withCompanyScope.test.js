@@ -1,12 +1,8 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { env } from 'cloudflare:test';
 import schemaSql from '../db/schema.sql?raw';
 import { withCompanyScope } from '../src/db/withCompanyScope.js';
 
-// Strips full-line `--` comments, then splits the rest into individual
-// statements on `;`. Good enough for schema.sql as long as it stays in
-// the "each statement ends with a semicolon on its own" shape it's in
-// today — this is test plumbing, not a general SQL parser.
 function parseStatements(sql) {
   return sql
     .split('\n')
@@ -22,29 +18,41 @@ beforeAll(async () => {
   await env.DB.batch(statements.map((sql) => env.DB.prepare(sql)));
 });
 
+beforeEach(async () => {
+  // companies has no company_id column, so it's created with a plain
+  // env.DB insert, not through withCompanyScope — see the comment in
+  // src/db/withCompanyScope.js for why.
+  await env.DB.prepare('INSERT INTO companies (id, name, created_at) VALUES (?, ?, ?)')
+    .bind('company-a', 'A Co', Date.now())
+    .run();
+  await env.DB.prepare('INSERT INTO companies (id, name, created_at) VALUES (?, ?, ?)')
+    .bind('company-b', 'B Co', Date.now())
+    .run();
+
+  const scopeA = withCompanyScope(env.DB, 'company-a');
+  const scopeB = withCompanyScope(env.DB, 'company-b');
+  await scopeA.insert('sites', { id: 'site-1', name: 'Main St', created_at: Date.now() });
+  await scopeB.insert('sites', { id: 'site-2', name: 'Elm St', created_at: Date.now() });
+});
+
 describe('withCompanyScope', () => {
   it('insert forces company_id regardless of what was passed in', async () => {
     const scopeA = withCompanyScope(env.DB, 'company-a');
-    await scopeA.insert('companies', { id: 'company-a', name: 'A Co', created_at: Date.now() });
     await scopeA.insert('sites', {
-      id: 'site-1',
+      id: 'site-99',
       company_id: 'should-be-overwritten',
-      name: 'Main St',
+      name: 'Oak St',
       created_at: Date.now(),
     });
 
-    const site = await scopeA.findById('sites', 'site-1');
+    const site = await scopeA.findById('sites', 'site-99');
     expect(site.company_id).toBe('company-a');
   });
 
   it('findById returns null for a row belonging to another company', async () => {
     const scopeA = withCompanyScope(env.DB, 'company-a');
     const scopeB = withCompanyScope(env.DB, 'company-b');
-    await scopeB.insert('companies', { id: 'company-b', name: 'B Co', created_at: Date.now() });
-    await scopeB.insert('sites', { id: 'site-2', name: 'Elm St', created_at: Date.now() });
 
-    // Company A reaching for company B's site id — this is the
-    // cross-account isolation boundary in miniature.
     const crossCompanyResult = await scopeA.findById('sites', 'site-2');
     expect(crossCompanyResult).toBeNull();
 
@@ -64,7 +72,7 @@ describe('withCompanyScope', () => {
     expect(stillOwnedByB.name).toBe('Elm St');
   });
 
-  it('findAll never returns another company\'s rows', async () => {
+  it("findAll never returns another company's rows", async () => {
     const scopeA = withCompanyScope(env.DB, 'company-a');
     const result = await scopeA.findAll('sites');
     expect(result.results.length).toBeGreaterThan(0);

@@ -8,6 +8,13 @@
 // be expressed through one of these methods, add a method here rather
 // than reaching for env.DB.prepare() in a handler — per the working
 // agreement in docs/flarelo-build-prompt.md.
+//
+// One legitimate exception: creating a company itself (Phase 2
+// signup). `companies` is the one table with no `company_id` column —
+// insert() below always forces that column onto whatever row it
+// writes, so calling it against `companies` fails. Insert the first
+// company row with a plain env.DB.prepare(...).run() instead; only
+// reach for withCompanyScope once a company_id actually exists.
 
 export function withCompanyScope(db, companyId) {
   if (!companyId) {
@@ -17,9 +24,6 @@ export function withCompanyScope(db, companyId) {
   return {
     companyId,
 
-    // Run an arbitrary scoped SELECT. `sql` must reserve its first `?`
-    // placeholder for company_id — this always binds that one first,
-    // then any additional params in order.
     async all(sql, params = []) {
       return db.prepare(sql).bind(companyId, ...params).all();
     },
@@ -36,10 +40,6 @@ export function withCompanyScope(db, companyId) {
     // literals in route code, never end-user input — do not pass a
     // user-controlled string into either.
 
-    // Fetch one row by id from any table with `id` + `company_id`
-    // columns — returns null if the id belongs to another company or
-    // doesn't exist. Route handlers should turn that null into a 404,
-    // never a 500.
     async findById(table, id) {
       return db
         .prepare(`SELECT * FROM ${table} WHERE company_id = ? AND id = ?`)
@@ -55,10 +55,6 @@ export function withCompanyScope(db, companyId) {
         .all();
     },
 
-    // Inserts `data` into `table`, forcing company_id to this scope's
-    // value regardless of what (if anything) the caller passed in —
-    // so a route handler can never accidentally insert a row into the
-    // wrong company by forgetting the field.
     async insert(table, data) {
       const row = { ...data, company_id: companyId };
       const cols = Object.keys(row);
@@ -70,9 +66,6 @@ export function withCompanyScope(db, companyId) {
         .run();
     },
 
-    // Updates a row by id, scoped to company_id in the WHERE clause —
-    // a row belonging to another company simply won't match, so this
-    // is a no-op (changes: 0) rather than a cross-company write.
     async update(table, id, data) {
       const cols = Object.keys(data);
       const setClause = cols.map((c) => `${c} = ?`).join(', ');
