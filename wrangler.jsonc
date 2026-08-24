@@ -9,20 +9,20 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "flarelo-db",
+      // PLACEHOLDER — works fine for `npm test` / `wrangler dev`
+      // locally. Replace with the real ID before `wrangler deploy`:
+      // create the database in the Cloudflare dashboard (Workers &
+      // Pages -> D1 -> Create database), then copy its ID here.
+      "database_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ]
 
-  // Uncomment and fill in once these exist in the Cloudflare dashboard.
-  // Phase 0 doesn't need either one: the D1 schema goes straight into
-  // the dashboard's Console tab in Phase 1, and R2 isn't touched until
-  // Phase 4.
-  //
-  // "d1_databases": [
-  //   {
-  //     "binding": "DB",
-  //     "database_name": "flarelo-db",
-  //     "database_id": "<paste the ID from the D1 dashboard here>"
-  //   }
-  // ],
+  // r2_buckets stays commented out — Phase 4 needs it, not Phase 1.
   // "r2_buckets": [
   //   {
   //     "binding": "BUCKET",
