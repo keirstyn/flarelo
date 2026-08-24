@@ -1,0 +1,32 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "flarelo",
+  "main": "src/index.js",
+  "compatibility_date": "2025-02-04",
+  // nodejs_compat is on from day one — Phase 5 (Stripe) needs it, and
+  // there's no reason to add it later and re-test everything.
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  }
+
+  // Uncomment and fill in once these exist in the Cloudflare dashboard.
+  // Phase 0 doesn't need either one: the D1 schema goes straight into
+  // the dashboard's Console tab in Phase 1, and R2 isn't touched until
+  // Phase 4.
+  //
+  // "d1_databases": [
+  //   {
+  //     "binding": "DB",
+  //     "database_name": "flarelo-db",
+  //     "database_id": "<paste the ID from the D1 dashboard here>"
+  //   }
+  // ],
+  // "r2_buckets": [
+  //   {
+  //     "binding": "BUCKET",
+  //     "bucket_name": "flarelo-files"
+  //   }
+  // ]
+}

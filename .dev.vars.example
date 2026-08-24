@@ -1,0 +1,8 @@
+# Copy this to .dev.vars (gitignored) for `wrangler dev` in Codespaces.
+# Production secrets go through the Cloudflare dashboard instead:
+# Workers & Pages -> your Worker -> Settings -> Variables and Secrets.
+
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+RESEND_API_KEY=
+SESSION_SECRET=
