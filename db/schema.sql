@@ -19,6 +19,9 @@ CREATE TABLE companies (
   created_at INTEGER NOT NULL
 );
 
+-- failed_login_count / locked_until back the basic login rate limiting
+-- in Phase 2 — after too many wrong passwords in a row, the account is
+-- locked out for a fixed window rather than allowed unlimited guesses.
 CREATE TABLE users (
   id TEXT PRIMARY KEY,
   company_id TEXT NOT NULL REFERENCES companies(id),
@@ -26,6 +29,8 @@ CREATE TABLE users (
   password_hash TEXT,
   role TEXT NOT NULL CHECK (role IN ('owner', 'technician')),
   status TEXT NOT NULL CHECK (status IN ('invited', 'active')) DEFAULT 'invited',
+  failed_login_count INTEGER NOT NULL DEFAULT 0,
+  locked_until INTEGER,
   created_at INTEGER NOT NULL
 );
 CREATE INDEX idx_users_company ON users(company_id);

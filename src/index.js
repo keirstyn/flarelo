@@ -1,9 +1,23 @@
+import { handleSignup, handleLogin, handleLogout } from './routes/auth.js';
+
+const routes = [
+  ['POST', '/api/auth/signup', handleSignup],
+  ['POST', '/api/auth/login', handleLogin],
+  ['POST', '/api/auth/logout', handleLogout],
+];
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     if (url.pathname === '/health') {
       return Response.json({ status: 'ok' });
+    }
+
+    for (const [method, path, handler] of routes) {
+      if (request.method === method && url.pathname === path) {
+        return handler(request, env, ctx);
+      }
     }
 
     // Everything else falls through to static assets. In production,
