@@ -1,9 +1,21 @@
-import { handleSignup, handleLogin, handleLogout } from './routes/auth.js';
+import {
+  handleSignup,
+  handleLogin,
+  handleLogout,
+  handleInvite,
+  handleAcceptInvite,
+  handleRequestPasswordReset,
+  handleResetPassword,
+} from './routes/auth.js';
 
 const routes = [
   ['POST', '/api/auth/signup', handleSignup],
   ['POST', '/api/auth/login', handleLogin],
   ['POST', '/api/auth/logout', handleLogout],
+  ['POST', '/api/auth/invite', handleInvite],
+  ['POST', '/api/auth/accept-invite', handleAcceptInvite],
+  ['POST', '/api/auth/request-password-reset', handleRequestPasswordReset],
+  ['POST', '/api/auth/reset-password', handleResetPassword],
 ];
 
 export default {

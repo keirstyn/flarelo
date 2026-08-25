@@ -99,3 +99,20 @@ CREATE TABLE stripe_events (
   id TEXT PRIMARY KEY,
   processed_at INTEGER NOT NULL
 );
+
+-- Backs both the invite flow and password reset (Phase 2). One shared
+-- table rather than two near-identical ones — `type` distinguishes
+-- them. `used_at` enforces single-use: a token is only ever consumed
+-- once, checked and set together in the same call — see
+-- src/auth/tokens.js.
+CREATE TABLE auth_tokens (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id),
+  user_id TEXT NOT NULL REFERENCES users(id),
+  token_hash TEXT NOT NULL UNIQUE,
+  type TEXT NOT NULL CHECK (type IN ('invite', 'password_reset')),
+  expires_at INTEGER NOT NULL,
+  used_at INTEGER,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX idx_auth_tokens_user ON auth_tokens(user_id);
