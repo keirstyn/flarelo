@@ -19,9 +19,6 @@ CREATE TABLE companies (
   created_at INTEGER NOT NULL
 );
 
--- failed_login_count / locked_until back the basic login rate limiting
--- in Phase 2 — after too many wrong passwords in a row, the account is
--- locked out for a fixed window rather than allowed unlimited guesses.
 CREATE TABLE users (
   id TEXT PRIMARY KEY,
   company_id TEXT NOT NULL REFERENCES companies(id),
@@ -29,8 +26,6 @@ CREATE TABLE users (
   password_hash TEXT,
   role TEXT NOT NULL CHECK (role IN ('owner', 'technician')),
   status TEXT NOT NULL CHECK (status IN ('invited', 'active')) DEFAULT 'invited',
-  failed_login_count INTEGER NOT NULL DEFAULT 0,
-  locked_until INTEGER,
   created_at INTEGER NOT NULL
 );
 CREATE INDEX idx_users_company ON users(company_id);
@@ -99,20 +94,3 @@ CREATE TABLE stripe_events (
   id TEXT PRIMARY KEY,
   processed_at INTEGER NOT NULL
 );
-
--- Backs both the invite flow and password reset (Phase 2). One shared
--- table rather than two near-identical ones — `type` distinguishes
--- them. `used_at` enforces single-use: a token is only ever consumed
--- once, checked and set together in the same call — see
--- src/auth/tokens.js.
-CREATE TABLE auth_tokens (
-  id TEXT PRIMARY KEY,
-  company_id TEXT NOT NULL REFERENCES companies(id),
-  user_id TEXT NOT NULL REFERENCES users(id),
-  token_hash TEXT NOT NULL UNIQUE,
-  type TEXT NOT NULL CHECK (type IN ('invite', 'password_reset')),
-  expires_at INTEGER NOT NULL,
-  used_at INTEGER,
-  created_at INTEGER NOT NULL
-);
-CREATE INDEX idx_auth_tokens_user ON auth_tokens(user_id);
