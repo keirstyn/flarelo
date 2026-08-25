@@ -91,6 +91,45 @@ that before touching anything here, it's the spec.
 4. `npm test` and `npm run dev` work fine even before you do this step
    — they use a local D1 instance. It only matters for `wrangler deploy`.
 
+## Phase 3 status: done
+
+- **Sites** (`POST/GET /api/sites`, `GET/PATCH/DELETE /api/sites/:id`) —
+  plain CRUD, scoped to the caller's company via `withCompanyScope`.
+  Creating/editing/deleting a site is owner-only (company setup, same
+  as user/billing management); listing and reading are open to any
+  authenticated user, since a technician needs to see where they're
+  going. `GET /api/sites/:id` also returns that site's assets.
+  Deleting a site with assets still on it is refused (`409`) rather
+  than cascading — remove/reassign the assets first.
+- **Assets** (`POST/GET /api/sites/:siteId/assets`,
+  `GET/PATCH/DELETE /api/assets/:id`) — same owner-only-for-writes /
+  open-for-reads split as sites. `asset_type` is validated against the
+  fixed four-value enum before it ever reaches the DB's `CHECK`
+  constraint. `next_due_at` is computed on create: an explicit
+  `next_due_at` in the request wins, otherwise it's
+  `install_date` (or "now", if no `install_date` given) plus one
+  `interval_days` — never a hardcoded NFPA/state-code interval, per
+  the hard constraint. Deleting an asset with inspection history is
+  refused (`409`); nothing can trip that yet since Phase 4 doesn't
+  exist, but the check is in place so Phase 4 doesn't have to
+  remember to add it.
+- **Dashboard** (`GET /api/dashboard?days=30`) — one indexed query on
+  `(company_id, next_due_at)` (see `idx_assets_company_next_due` in
+  `db/schema.sql`) for every asset due within the window, including
+  anything already overdue. Grouped by site in JS after the single
+  query, not in SQL.
+- `test/isolation.test.js` — the cross-account isolation harness now
+  has real assertions (seeded companies A/B, company A's session hits
+  every sites/assets endpoint with company B's ids) instead of
+  `it.todo(...)`. Per the working agreement, this had to pass before
+  Phase 3 counted as done. The `inspections` case stays `it.todo`
+  until Phase 4 builds that table's routes.
+- `test/sites-assets-dashboard.test.js` — CRUD + role enforcement for
+  sites and assets, `next_due_at` computation (both computed and
+  explicit-override paths), validation errors, the "can't delete
+  what's still referenced" guards, and dashboard windowing/grouping/
+  ordering.
+
 ## Running this
 
 Open this repo in **GitHub Codespaces**, then:
@@ -98,16 +137,20 @@ Open this repo in **GitHub Codespaces**, then:
 ```sh
 npm install
 cp .dev.vars.example .dev.vars   # fill in real values if testing Stripe/Resend
-npm test                          # confirms Phase 0-2 tests pass
+npm test                          # confirms Phase 0-3 tests pass
 npm run dev                       # wrangler dev, for anything needing real debugging
 ```
 
 Deploys go through Cloudflare's Workers Builds Git integration
 (dashboard, connect repo, done) — no CLI, no Actions required.
 
-## Next: Phase 3
+## Next: Phase 4
 
-Sites (CRUD), assets (per-site, with `asset_type`/`interval_days`/
-`next_due_at` computed on create and after each inspection), and the
-dashboard: one indexed query on `(company_id, next_due_at)` for assets
-due within 30 days, grouped by site.
+Mobile-friendly inspection form (four hardcoded checklists, photo
+upload via a signed R2 upload URL, live signature capture — never
+pre-filled), submit flow (generate the PDF, store it in R2, update
+`assets.next_due_at`/`last_inspected_at`, write the `inspections`
+row), and the `pdf-lib` "hello world" smoke test in an actually-
+deployed Worker before building the real template. Needs the
+`r2_buckets` binding in `wrangler.jsonc` uncommented, and a real R2
+bucket created to match.

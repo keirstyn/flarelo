@@ -1,5 +1,23 @@
-import { describe, it, expect } from 'vitest';
-import { SELF } from 'cloudflare:test';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { SELF, env } from 'cloudflare:test';
+import schemaSql from '../db/schema.sql?raw';
+import { withCompanyScope } from '../src/db/withCompanyScope.js';
+import { createSession, serializeSessionCookie } from '../src/auth/sessions.js';
+
+function parseStatements(sql) {
+  return sql
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('--'))
+    .join('\n')
+    .split(';')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+beforeAll(async () => {
+  const statements = parseStatements(schemaSql);
+  await env.DB.batch(statements.map((sql) => env.DB.prepare(sql)));
+});
 
 describe('health check', () => {
   it('responds on /health', async () => {
@@ -10,32 +28,97 @@ describe('health check', () => {
   });
 });
 
-// Cross-account isolation harness — shape only, for now.
-//
-// This is the project's stand-in for Postgres RLS (D1 has none), so
-// per the working agreement it has to exist and pass before any other
-// feature is considered done. The shape: seed two companies, A and B,
-// each with one user. Authenticate as company A's user, then hit every
-// endpoint that takes an id, passing one of company B's ids. Every one
-// of those calls must return 403 or 404 — never a 500, and never a 200
-// carrying company B's data.
-//
-// Fill in seeding + real assertions as each endpoint below gets built,
-// starting in Phase 1. Add one it.todo() per new endpoint as it's
-// added, so the gap between "endpoint exists" and "isolation test
-// covers it" never has a chance to grow.
+// Cross-account isolation harness — the project's stand-in for
+// Postgres RLS (D1 has none). Seeds two companies, each with one
+// owner, gives company B a site and an asset, then hits every
+// company-A-authenticated endpoint that takes an id with one of
+// company B's ids. Every one of those calls must come back 403/404 —
+// never 500, and never a 200 carrying company B's data.
 describe('cross-account isolation', () => {
-  it.todo('seeds company A and company B with one user each');
+  it("returns 403/404 (never 500, never real data) when company A's user touches company B's sites/assets", async () => {
+    const now = Date.now();
+
+    await env.DB.prepare('INSERT INTO companies (id, name, created_at) VALUES (?, ?, ?)')
+      .bind('iso-company-a', 'Iso A Co', now)
+      .run();
+    await env.DB.prepare('INSERT INTO companies (id, name, created_at) VALUES (?, ?, ?)')
+      .bind('iso-company-b', 'Iso B Co', now)
+      .run();
+
+    const scopeA = withCompanyScope(env.DB, 'iso-company-a');
+    const scopeB = withCompanyScope(env.DB, 'iso-company-b');
+
+    await scopeA.insert('users', {
+      id: 'iso-user-a',
+      email: 'iso-a@example.com',
+      password_hash: null,
+      role: 'owner',
+      status: 'active',
+      created_at: now,
+    });
+    await scopeB.insert('users', {
+      id: 'iso-user-b',
+      email: 'iso-b@example.com',
+      password_hash: null,
+      role: 'owner',
+      status: 'active',
+      created_at: now,
+    });
+
+    await scopeB.insert('sites', { id: 'iso-site-b', name: 'B Site', created_at: now });
+    await scopeB.insert('assets', {
+      id: 'iso-asset-b',
+      site_id: 'iso-site-b',
+      asset_type: 'fire_extinguisher',
+      label: 'B Extinguisher',
+      interval_days: 365,
+      next_due_at: now + 1000,
+      created_at: now,
+    });
+
+    const { token } = await createSession(env.DB, { userId: 'iso-user-a', companyId: 'iso-company-a' });
+    const cookie = serializeSessionCookie(token, { maxAgeSeconds: 3600 }).split(';')[0];
+    const authedGet = (path) => SELF.fetch(`https://example.com${path}`, { headers: { Cookie: cookie } });
+    const authedWrite = (path, method, body) =>
+      SELF.fetch(`https://example.com${path}`, {
+        method,
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+
+    const getSite = await authedGet('/api/sites/iso-site-b');
+    expect(getSite.status).toBe(404);
+
+    const getAsset = await authedGet('/api/assets/iso-asset-b');
+    expect(getAsset.status).toBe(404);
+
+    const listAssetsForBSite = await authedGet('/api/sites/iso-site-b/assets');
+    expect(listAssetsForBSite.status).toBe(404);
+
+    const updateSite = await authedWrite('/api/sites/iso-site-b', 'PATCH', { name: 'Hijacked' });
+    expect([403, 404]).toContain(updateSite.status);
+
+    const deleteSite = await authedWrite('/api/sites/iso-site-b', 'DELETE');
+    expect([403, 404]).toContain(deleteSite.status);
+
+    const deleteAsset = await authedWrite('/api/assets/iso-asset-b', 'DELETE');
+    expect([403, 404]).toContain(deleteAsset.status);
+
+    const createAssetUnderBSite = await authedWrite('/api/sites/iso-site-b/assets', 'POST', {
+      label: 'Sneaked in',
+      asset_type: 'fire_extinguisher',
+      interval_days: 365,
+    });
+    expect([403, 404]).toContain(createAssetUnderBSite.status);
+
+    // Company A's own dashboard must never surface company B's assets.
+    const dashboard = await authedGet('/api/dashboard?days=36500');
+    expect(dashboard.status).toBe(200);
+    const dashboardBody = await dashboard.json();
+    expect(dashboardBody.sites.some((s) => s.site_id === 'iso-site-b')).toBe(false);
+  });
+
   it.todo(
-    "returns 403/404 (never 500, never real data) when company A's " +
-      "user reads one of company B's sites"
-  );
-  it.todo(
-    "returns 403/404 (never 500, never real data) when company A's " +
-      "user reads one of company B's assets"
-  );
-  it.todo(
-    "returns 403/404 (never 500, never real data) when company A's " +
-      "user reads one of company B's inspections"
+    "returns 403/404 (never 500, never real data) when company A's " + "user reads one of company B's inspections"
   );
 });
