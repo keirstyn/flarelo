@@ -11,5 +11,8 @@
     "wrangler": "^4.0.0",
     "vitest": "^2.1.0",
     "@cloudflare/vitest-pool-workers": "^0.6.0"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
   }
 }

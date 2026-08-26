@@ -3,8 +3,6 @@
   "name": "flarelo",
   "main": "src/index.js",
   "compatibility_date": "2025-02-04",
-  // nodejs_compat is on from day one — Phase 5 (Stripe) needs it, and
-  // there's no reason to add it later and re-test everything.
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "./public",
@@ -14,19 +12,13 @@
     {
       "binding": "DB",
       "database_name": "flarelo-db",
-      // PLACEHOLDER — works fine for `npm test` / `wrangler dev`
-      // locally. Replace with the real ID before `wrangler deploy`:
-      // create the database in the Cloudflare dashboard (Workers &
-      // Pages -> D1 -> Create database), then copy its ID here.
-      "database_id": "b76a0484-6110-4f38-916e-c6aa5993087c"
+      "database_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "flarelo-files"
     }
   ]
-
-  // r2_buckets stays commented out — Phase 4 needs it, not Phase 1.
-  // "r2_buckets": [
-  //   {
-  //     "binding": "BUCKET",
-  //     "bucket_name": "flarelo-files"
-  //   }
-  // ]
 }
