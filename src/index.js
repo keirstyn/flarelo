@@ -22,6 +22,7 @@ import {
   handleDeleteAsset,
 } from './routes/assets.js';
 import { handleDashboard } from './routes/dashboard.js';
+import { handlePdfSmokeTest } from './routes/pdf-smoke-test.js';
 
 const routes = [
   ['POST', '/api/auth/signup', handleSignup],
@@ -45,12 +46,10 @@ const routes = [
   ['DELETE', '/api/assets/:id', handleDeleteAsset],
 
   ['GET', '/api/dashboard', handleDashboard],
+
+  ['GET', '/api/dev/pdf-smoke-test', handlePdfSmokeTest], // TEMPORARY — see pdf-smoke-test.js
 ];
 
-// Every route pattern segment is either a literal or a `:name`
-// param — no wildcards, no regex. Segment counts must match exactly,
-// so `/api/sites/:id` (3 segments) and `/api/sites/:siteId/assets`
-// (4 segments) never collide regardless of route order.
 function matchRoute(pattern, pathname) {
   const patternParts = pattern.split('/').filter(Boolean);
   const pathParts = pathname.split('/').filter(Boolean);
@@ -82,10 +81,6 @@ export default {
       if (params) return handler(request, env, ctx, params);
     }
 
-    // Everything else falls through to static assets. In production,
-    // Cloudflare serves matching files from the `assets` binding
-    // directly, before this Worker even runs — this fallback just
-    // keeps `wrangler dev` behaving the same way locally.
     if (env.ASSETS) {
       return env.ASSETS.fetch(request);
     }
