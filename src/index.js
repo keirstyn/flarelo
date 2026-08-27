@@ -23,6 +23,7 @@ import {
 } from './routes/assets.js';
 import { handleDashboard } from './routes/dashboard.js';
 import { handlePdfSmokeTest } from './routes/pdf-smoke-test.js';
+import { handleSubmitInspection, handleGetInspectionPdf } from './routes/inspections.js';
 
 const routes = [
   ['POST', '/api/auth/signup', handleSignup],
@@ -47,7 +48,10 @@ const routes = [
 
   ['GET', '/api/dashboard', handleDashboard],
 
-  ['GET', '/api/dev/pdf-smoke-test', handlePdfSmokeTest], // TEMPORARY — see pdf-smoke-test.js
+  ['GET', '/api/dev/pdf-smoke-test', handlePdfSmokeTest],
+
+  ['POST', '/api/assets/:assetId/inspections', handleSubmitInspection],
+  ['GET', '/api/inspections/:id/pdf', handleGetInspectionPdf],
 ];
 
 function matchRoute(pattern, pathname) {

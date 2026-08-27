@@ -118,7 +118,32 @@ describe('cross-account isolation', () => {
     expect(dashboardBody.sites.some((s) => s.site_id === 'iso-site-b')).toBe(false);
   });
 
-  it.todo(
-    "returns 403/404 (never 500, never real data) when company A's " + "user reads one of company B's inspections"
-  );
+  it("returns 403/404 (never 500, never real data) when company A's user touches company B's inspections", async () => {
+    const now = Date.now();
+    const scopeB = withCompanyScope(env.DB, 'iso-company-b');
+    await scopeB.insert('inspections', {
+      id: 'iso-inspection-b',
+      asset_id: 'iso-asset-b',
+      technician_user_id: 'iso-user-b',
+      checklist_json: '[]',
+      pdf_r2_key: 'reports/iso-company-b/fake.pdf',
+      next_due_at_snapshot: now,
+      submitted_at: now,
+    });
+
+    const { token } = await createSession(env.DB, { userId: 'iso-user-a', companyId: 'iso-company-a' });
+    const cookie = serializeSessionCookie(token, { maxAgeSeconds: 3600 }).split(';')[0];
+
+    const submitRes = await SELF.fetch('https://example.com/api/assets/iso-asset-b/inspections', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ answers: [], signature: 'ZmFrZQ==' }),
+    });
+    expect(submitRes.status).toBe(404);
+
+    const pdfRes = await SELF.fetch('https://example.com/api/inspections/iso-inspection-b/pdf', {
+      headers: { Cookie: cookie },
+    });
+    expect(pdfRes.status).toBe(404);
+  });
 });
