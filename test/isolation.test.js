@@ -120,7 +120,45 @@ describe('cross-account isolation', () => {
 
   it("returns 403/404 (never 500, never real data) when company A's user touches company B's inspections", async () => {
     const now = Date.now();
+
+    await env.DB.prepare('INSERT INTO companies (id, name, created_at) VALUES (?, ?, ?)')
+      .bind('iso-company-a', 'Iso A Co', now)
+      .run();
+    await env.DB.prepare('INSERT INTO companies (id, name, created_at) VALUES (?, ?, ?)')
+      .bind('iso-company-b', 'Iso B Co', now)
+      .run();
+
+    const scopeA = withCompanyScope(env.DB, 'iso-company-a');
     const scopeB = withCompanyScope(env.DB, 'iso-company-b');
+
+    await scopeA.insert('users', {
+      id: 'iso-user-a',
+      email: 'iso-a@example.com',
+      password_hash: null,
+      role: 'owner',
+      status: 'active',
+      created_at: now,
+    });
+    await scopeB.insert('users', {
+      id: 'iso-user-b',
+      email: 'iso-b@example.com',
+      password_hash: null,
+      role: 'owner',
+      status: 'active',
+      created_at: now,
+    });
+
+    await scopeB.insert('sites', { id: 'iso-site-b', name: 'B Site', created_at: now });
+    await scopeB.insert('assets', {
+      id: 'iso-asset-b',
+      site_id: 'iso-site-b',
+      asset_type: 'fire_extinguisher',
+      label: 'B Extinguisher',
+      interval_days: 365,
+      next_due_at: now + 1000,
+      created_at: now,
+    });
+
     await scopeB.insert('inspections', {
       id: 'iso-inspection-b',
       asset_id: 'iso-asset-b',

@@ -12,7 +12,7 @@ beforeAll(async () => {
   await env.DB.batch(statements.map((sql) => env.DB.prepare(sql)));
 });
 
-const fakeBase64 = btoa('fake-bytes');
+const fakeBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
 
 async function signupOwner() {
   const res = await SELF.fetch('https://example.com/api/auth/signup', {
@@ -109,6 +109,7 @@ describe('inspection submission', () => {
 
     const pdfObject = await env.BUCKET.get(inspection.pdf_r2_key);
     expect(pdfObject).not.toBeNull();
+    await pdfObject.arrayBuffer();
 
     const updatedAssetRes = await authedFetch(cookie, `/api/assets/${asset.id}`);
     const { asset: updatedAsset } = await updatedAssetRes.json();
@@ -118,6 +119,7 @@ describe('inspection submission', () => {
     const pdfFetchRes = await authedFetch(cookie, `/api/inspections/${inspection.id}/pdf`);
     expect(pdfFetchRes.status).toBe(200);
     expect(pdfFetchRes.headers.get('Content-Type')).toBe('application/pdf');
+    await pdfFetchRes.arrayBuffer();
   });
 
   it('404s submitting against an asset in another company', async () => {

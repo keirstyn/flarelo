@@ -24,6 +24,8 @@ CREATE TABLE users (
   company_id TEXT NOT NULL REFERENCES companies(id),
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT,
+  failed_login_count INTEGER NOT NULL DEFAULT 0,
+  locked_until INTEGER,
   role TEXT NOT NULL CHECK (role IN ('owner', 'technician')),
   status TEXT NOT NULL CHECK (status IN ('invited', 'active')) DEFAULT 'invited',
   created_at INTEGER NOT NULL
@@ -94,3 +96,18 @@ CREATE TABLE stripe_events (
   id TEXT PRIMARY KEY,
   processed_at INTEGER NOT NULL
 );
+-- Shared table for both invite links and password-reset links,
+-- distinguished by `type`. Single-use: consumeAuthToken() checks
+-- used_at IS NULL and sets it in the same read-then-write call. See
+-- src/auth/tokens.js.
+CREATE TABLE auth_tokens (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id),
+  user_id TEXT NOT NULL REFERENCES users(id),
+  token_hash TEXT NOT NULL UNIQUE,
+  type TEXT NOT NULL CHECK (type IN ('invite', 'password_reset')),
+  expires_at INTEGER NOT NULL,
+  used_at INTEGER,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX idx_auth_tokens_user ON auth_tokens(user_id);

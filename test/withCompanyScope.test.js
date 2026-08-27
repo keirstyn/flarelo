@@ -22,17 +22,26 @@ beforeAll(async () => {
   await env.DB.batch(statements.map((sql) => env.DB.prepare(sql)));
 });
 
+// companies has no company_id column (see withCompanyScope.js), so it
+// is always created via a plain env.DB insert here — matching how the
+// real signup route creates a company — never through scope.insert().
+async function seedCompany(id, name) {
+  await env.DB
+    .prepare('INSERT INTO companies (id, name, created_at) VALUES (?, ?, ?)')
+    .bind(id, name, Date.now())
+    .run();
+}
+
 describe('withCompanyScope', () => {
   it('insert forces company_id regardless of what was passed in', async () => {
+    await seedCompany('company-a', 'A Co');
     const scopeA = withCompanyScope(env.DB, 'company-a');
-    await scopeA.insert('companies', { id: 'company-a', name: 'A Co', created_at: Date.now() });
     await scopeA.insert('sites', {
       id: 'site-1',
       company_id: 'should-be-overwritten',
       name: 'Main St',
       created_at: Date.now(),
     });
-
     const site = await scopeA.findById('sites', 'site-1');
     expect(site.company_id).toBe('company-a');
   });
@@ -40,7 +49,7 @@ describe('withCompanyScope', () => {
   it('findById returns null for a row belonging to another company', async () => {
     const scopeA = withCompanyScope(env.DB, 'company-a');
     const scopeB = withCompanyScope(env.DB, 'company-b');
-    await scopeB.insert('companies', { id: 'company-b', name: 'B Co', created_at: Date.now() });
+    await seedCompany('company-b', 'B Co');
     await scopeB.insert('sites', { id: 'site-2', name: 'Elm St', created_at: Date.now() });
 
     // Company A reaching for company B's site id — this is the
@@ -54,30 +63,37 @@ describe('withCompanyScope', () => {
   });
 
   it('update across companies is a no-op, not a cross-company write', async () => {
-    const scopeA = withCompanyScope(env.DB, 'company-a');
+    await seedCompany('company-a', 'A Co');
+    await seedCompany('company-b', 'B Co');
     const scopeB = withCompanyScope(env.DB, 'company-b');
+    await scopeB.insert('sites', { id: 'site-2', name: 'Elm St', created_at: Date.now() });
 
+    const scopeA = withCompanyScope(env.DB, 'company-a');
     const result = await scopeA.update('sites', 'site-2', { name: 'Hijacked' });
     expect(result.meta.changes).toBe(0);
-
     const stillOwnedByB = await scopeB.findById('sites', 'site-2');
     expect(stillOwnedByB.name).toBe('Elm St');
   });
 
   it('findAll never returns another company\'s rows', async () => {
+    await seedCompany('company-a', 'A Co');
     const scopeA = withCompanyScope(env.DB, 'company-a');
+    await scopeA.insert('sites', { id: 'site-1', name: 'Main St', created_at: Date.now() });
+
     const result = await scopeA.findAll('sites');
     expect(result.results.length).toBeGreaterThan(0);
     expect(result.results.every((row) => row.company_id === 'company-a')).toBe(true);
   });
 
   it('remove across companies is a no-op', async () => {
-    const scopeA = withCompanyScope(env.DB, 'company-a');
+    await seedCompany('company-a', 'A Co');
+    await seedCompany('company-b', 'B Co');
     const scopeB = withCompanyScope(env.DB, 'company-b');
+    await scopeB.insert('sites', { id: 'site-2', name: 'Elm St', created_at: Date.now() });
 
+    const scopeA = withCompanyScope(env.DB, 'company-a');
     const result = await scopeA.remove('sites', 'site-2');
     expect(result.meta.changes).toBe(0);
-
     const stillThere = await scopeB.findById('sites', 'site-2');
     expect(stillThere).not.toBeNull();
   });
