@@ -94,6 +94,7 @@ async function showLogin(message) {
         <label>Password<input type="password" name="password" required autocomplete="current-password"></label>
         <button type="submit">Log in</button>
       </form>
+      <p class="switch-link">New company? <a href="#" id="show-signup-link">Sign up</a></p>
     </div>
   `);
   document.getElementById('login-form').addEventListener('submit', async (e) => {
@@ -111,6 +112,53 @@ async function showLogin(message) {
     } else {
       showLogin(data?.error || 'Login failed');
     }
+  });
+  document.getElementById('show-signup-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    showSignup();
+  });
+}
+
+// Creates a brand-new company + owner account — this is the ONLY
+// signup path, matching the backend: a second person on an existing
+// company always comes in via an owner-sent invite, never this form.
+async function showSignup(message) {
+  render(`
+    <div class="screen">
+      <h1>Create your company</h1>
+      ${message ? `<p class="error">${message}</p>` : ''}
+      <form id="signup-form">
+        <label>Company name<input type="text" name="companyName" required></label>
+        <label>Your email<input type="email" name="email" required autocomplete="username"></label>
+        <label>Password<input type="password" name="password" required autocomplete="new-password" minlength="8"></label>
+        <button type="submit">Create account</button>
+      </form>
+      <p class="switch-link">Already have an account? <a href="#" id="show-login-link">Log in</a></p>
+    </div>
+  `);
+  document.getElementById('signup-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    const submitBtn = e.target.querySelector('button');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating…';
+    const { res, data } = await apiJson('/api/auth/signup', {
+      method: 'POST',
+      body: {
+        companyName: form.get('companyName'),
+        email: form.get('email'),
+        password: form.get('password'),
+      },
+    });
+    if (res.status === 201) {
+      await boot();
+    } else {
+      showSignup(data?.error || 'Signup failed');
+    }
+  });
+  document.getElementById('show-login-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    showLogin();
   });
 }
 
