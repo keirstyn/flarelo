@@ -1,6 +1,7 @@
 import {
   handleSignup,
   handleLogin,
+  handleMe,
   handleLogout,
   handleInvite,
   handleAcceptInvite,
@@ -23,7 +24,7 @@ import {
 } from './routes/assets.js';
 import { handleDashboard } from './routes/dashboard.js';
 import { handlePdfSmokeTest } from './routes/pdf-smoke-test.js';
-import { handleSubmitInspection, handleGetInspectionPdf } from './routes/inspections.js';
+import { handleSubmitInspection, handleGetInspectionPdf, handleGetChecklistForAsset } from './routes/inspections.js';
 import { handleUploadPhoto, handleUploadSignature } from './routes/uploads.js';
 import { handleListDeficiencies, handleUpdateDeficiency } from './routes/deficiencies.js';
 import {
@@ -36,6 +37,7 @@ const routes = [
   ['POST', '/api/auth/signup', handleSignup],
   ['POST', '/api/auth/login', handleLogin],
   ['POST', '/api/auth/logout', handleLogout],
+  ['GET', '/api/auth/me', handleMe],
   ['POST', '/api/auth/invite', handleInvite],
   ['POST', '/api/auth/accept-invite', handleAcceptInvite],
   ['POST', '/api/auth/request-password-reset', handleRequestPasswordReset],
@@ -54,6 +56,7 @@ const routes = [
   ['GET', '/api/dev/pdf-smoke-test', handlePdfSmokeTest],
   ['POST', '/api/assets/:assetId/inspections', handleSubmitInspection],
   ['GET', '/api/inspections/:id/pdf', handleGetInspectionPdf],
+  ['GET', '/api/assets/:assetId/checklist', handleGetChecklistForAsset],
   ['POST', '/api/assets/:assetId/photos', handleUploadPhoto],
   ['POST', '/api/assets/:assetId/signature', handleUploadSignature],
   ['GET', '/api/deficiencies', handleListDeficiencies],

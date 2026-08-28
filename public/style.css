@@ -1,0 +1,132 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f4f5f7;
+  color: #1a1a1a;
+}
+.screen {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px;
+  min-height: 100vh;
+}
+h1 { font-size: 1.4rem; margin: 0 0 12px; }
+h2 { font-size: 1.05rem; margin: 20px 0 8px; }
+.sub { color: #666; margin-top: -8px; }
+.loading { color: #888; text-align: center; padding: 40px 0; }
+.error { color: #b3261e; font-size: 0.9rem; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.topbar h1 { flex: 1; margin: 0; }
+.back, .logout {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  color: #1a4fd6;
+  padding: 6px;
+}
+
+form label {
+  display: block;
+  margin-bottom: 14px;
+  font-size: 0.9rem;
+  color: #444;
+}
+input[type=email], input[type=password] {
+  width: 100%;
+  padding: 12px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+button {
+  width: 100%;
+  padding: 14px;
+  font-size: 1rem;
+  border: none;
+  border-radius: 10px;
+  background: #1a4fd6;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+button:disabled { opacity: 0.6; }
+
+.list { list-style: none; padding: 0; margin: 0; }
+.list-item {
+  background: white;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  position: relative;
+  cursor: pointer;
+}
+.list-item-title { font-weight: 600; }
+.list-item-sub { color: #666; font-size: 0.85rem; margin-top: 2px; }
+
+.badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.badge-overdue { background: #fde8e6; color: #b3261e; }
+.badge-soon { background: #fff4d6; color: #93670a; }
+.badge-ok { background: #e3f5e6; color: #1e7d32; }
+
+.section { margin-top: 8px; }
+.checklist-item {
+  background: white;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 10px;
+}
+.checklist-label { font-weight: 500; margin: 0 0 10px; }
+.status-buttons { display: flex; gap: 16px; margin-bottom: 8px; }
+.status-opt { display: flex; align-items: center; gap: 6px; font-size: 0.95rem; }
+.notes-input {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.photo-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.photo-chip {
+  background: #e3f5e6;
+  color: #1e7d32;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+.photo-chip-pending { background: #fff4d6; color: #93670a; }
+.photo-chip-failed { background: #fde8e6; color: #b3261e; cursor: pointer; }
+
+#signature-pad {
+  width: 100%;
+  height: 160px;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  touch-action: none;
+}
+.sig-controls { display: flex; justify-content: space-between; align-items: center; margin: 8px 0 4px; }
+.sig-controls button { width: auto; padding: 8px 14px; background: #eee; color: #333; font-weight: 500; }
+.sig-status { color: #1e7d32; font-size: 0.85rem; font-weight: 600; }
+
+#submit-btn { margin-top: 16px; }
+#submit-error { margin-bottom: 8px; }

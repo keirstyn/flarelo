@@ -9,16 +9,6 @@ const DAY_MS = 1000 * 60 * 60 * 24;
 const VALID_STATUSES = ['pass', 'fail', 'na'];
 const MAX_PHOTOS = 20;
 
-// Submit takes R2 KEYS for the signature and photos, not raw bytes —
-// those are uploaded separately first via uploads.js, each as its own
-// small retryable request. This function only validates the keys
-// belong to this company+asset and actually exist in R2 before
-// trusting them; it never receives or decodes binary payloads itself.
-//
-// Third parameter after params: same test-injection pattern as
-// handleInvite/handleRequestPasswordReset in auth.js — a real
-// ExecutionContext has neither generatePdfFn nor sendEmailFn, so
-// production behavior is unaffected; tests can override either.
 export async function handleSubmitInspection(
   request,
   env,
@@ -64,9 +54,6 @@ export async function handleSubmitInspection(
     }
   }
 
-  // Confirm every referenced upload actually landed in R2 — catches a
-  // client that raced ahead of a failed/slow upload rather than
-  // trusting the key string alone.
   const signatureObject = await env.BUCKET.get(body.signature_key);
   if (!signatureObject) {
     return json({ error: 'signature was not found — please retry the upload' }, { status: 400 });
@@ -110,9 +97,6 @@ export async function handleSubmitInspection(
   });
   await scope.update('assets', asset.id, { next_due_at: nextDueAt, last_inspected_at: now });
 
-  // Auto-create a deficiency for every failed checklist item — this
-  // is the "record deficiencies" + "create follow-up work" automation.
-  // Never fails the submission if something downstream (email) breaks.
   const failedAnswers = body.answers.filter((a) => a.status === 'fail');
   const deficiencyRows = [];
   for (const answer of failedAnswers) {
@@ -131,7 +115,6 @@ export async function handleSubmitInspection(
     deficiencyRows.push({ id: deficiencyId, description });
   }
 
-  // Best-effort office alert — never blocks the submission response.
   if (deficiencyRows.length > 0) {
     try {
       const owner = await scope.first("SELECT email FROM users WHERE company_id = ? AND role = 'owner'");
@@ -150,8 +133,6 @@ export async function handleSubmitInspection(
     }
   }
 
-  // Best-effort customer notification — plain text placeholder.
-  // Emailing the actual PDF (with SPF/DKIM verified) is Phase 6.
   if (site?.contact_email) {
     try {
       await sendEmailFn(env, {
@@ -166,6 +147,19 @@ export async function handleSubmitInspection(
 
   const inspection = await scope.findById('inspections', inspectionId);
   return json({ inspection, deficiencies: deficiencyRows }, { status: 201 });
+}
+
+// Returns the checklist for a given asset (derived from its
+// asset_type), so the frontend renders the right fixed checklist
+// without duplicating CHECKLISTS content client-side.
+export async function handleGetChecklistForAsset(request, env, ctx, params) {
+  const auth = await authenticate(request, env);
+  if (!auth) return json({ error: 'Unauthorized' }, { status: 401 });
+  const scope = withCompanyScope(env.DB, auth.user.company_id);
+  const asset = await scope.findById('assets', params.assetId);
+  if (!asset) return json({ error: 'Asset not found' }, { status: 404 });
+  const checklist = getChecklistForAssetType(asset.asset_type);
+  return json({ asset_type: asset.asset_type, checklist });
 }
 
 export async function handleGetInspectionPdf(request, env, ctx, params) {

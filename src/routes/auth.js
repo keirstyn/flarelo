@@ -64,6 +64,8 @@ export async function handleLogin(request, env) {
   }
   const email = body.email.trim().toLowerCase();
   const user = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
+  // Same generic error whether the email doesn't exist, the account
+  // isn't active yet, or the password is wrong — never leak which one.
   const invalidCredentials = () => json({ error: 'Invalid email or password' }, { status: 401 });
   if (!user || user.status !== 'active' || !user.password_hash) {
     return invalidCredentials();
@@ -92,6 +94,17 @@ export async function handleLogin(request, env) {
     { user: { id: user.id, email: user.email, role: user.role } },
     { status: 200, headers: { 'Set-Cookie': serializeSessionCookie(token, { maxAgeSeconds }) } }
   );
+}
+
+// Returns the current authenticated user, or 401. Used by the
+// frontend to check login state without a workaround like probing an
+// unrelated endpoint.
+export async function handleMe(request, env) {
+  const auth = await authenticate(request, env);
+  if (!auth) return json({ error: 'Unauthorized' }, { status: 401 });
+  return json({
+    user: { id: auth.user.id, email: auth.user.email, role: auth.user.role, company_id: auth.user.company_id },
+  });
 }
 
 export async function handleLogout(request, env) {
@@ -156,6 +169,8 @@ export async function handleInvite(request, env, { sendEmailFn = sendEmail } = {
   return json({ ok: true }, { status: 201 });
 }
 
+// Public: accept an invite by setting a password. Consuming the token
+// flips the invited user's status to active and logs them in.
 export async function handleAcceptInvite(request, env) {
   const body = await readJson(request);
   if (!body || !body.token || !body.password) {
@@ -181,6 +196,12 @@ export async function handleAcceptInvite(request, env) {
   );
 }
 
+// Public: request a password reset. Always returns 200 whether or not
+// the email exists, and sends at most one email per
+// PASSWORD_RESET_RATE_LIMIT_MS per account — so this endpoint can't be
+// used to enumerate accounts or to spam someone's inbox.
+//
+// Third parameter: see the comment on handleInvite above.
 export async function handleRequestPasswordReset(request, env, { sendEmailFn = sendEmail } = {}) {
   const body = await readJson(request);
   if (!body || !body.email) {
