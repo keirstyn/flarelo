@@ -167,6 +167,7 @@ async function showSitePicker() {
   const { res, data } = await apiJson('/api/sites');
   if (res.status !== 200) return showLogin('Session expired — please log in again.');
   const sites = data.sites || [];
+  const isOwner = currentUser?.role === 'owner';
   render(`
     <div class="screen">
       <header class="topbar">
@@ -182,12 +183,55 @@ async function showSitePicker() {
           </li>
         `).join('')}
       </ul>
+      ${isOwner ? `
+        <button type="button" class="secondary-btn" id="toggle-add-site-btn">+ Add Site</button>
+        <form id="add-site-form" class="inline-form hidden">
+          <label>Name<input type="text" name="name" required></label>
+          <label>Address<input type="text" name="address"></label>
+          <label>Customer contact name<input type="text" name="contact_name"></label>
+          <label>Customer contact email<input type="email" name="contact_email"></label>
+          <label>Customer contact phone<input type="tel" name="contact_phone"></label>
+          <p id="add-site-error" class="error"></p>
+          <button type="submit">Save Site</button>
+        </form>
+      ` : ''}
     </div>
   `);
   document.getElementById('logout-btn').addEventListener('click', logout);
   document.querySelectorAll('.list-item[data-site-id]').forEach((el) => {
     el.addEventListener('click', () => showAssetPicker(el.dataset.siteId));
   });
+  if (isOwner) {
+    document.getElementById('toggle-add-site-btn').addEventListener('click', () => {
+      document.getElementById('add-site-form').classList.toggle('hidden');
+    });
+    document.getElementById('add-site-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = new FormData(e.target);
+      const submitBtn = e.target.querySelector('button[type=submit]');
+      const errorEl = document.getElementById('add-site-error');
+      errorEl.textContent = '';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving…';
+      const { res, data } = await apiJson('/api/sites', {
+        method: 'POST',
+        body: {
+          name: form.get('name'),
+          address: form.get('address') || undefined,
+          contact_name: form.get('contact_name') || undefined,
+          contact_email: form.get('contact_email') || undefined,
+          contact_phone: form.get('contact_phone') || undefined,
+        },
+      });
+      if (res.status === 201) {
+        showSitePicker();
+      } else {
+        errorEl.textContent = data?.error || 'Failed to create site';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save Site';
+      }
+    });
+  }
 }
 
 async function showAssetPicker(siteId) {
@@ -195,6 +239,7 @@ async function showAssetPicker(siteId) {
   const { res, data } = await apiJson(`/api/sites/${siteId}/assets`);
   if (res.status !== 200) return showSitePicker();
   const assets = data.assets || [];
+  const isOwner = currentUser?.role === 'owner';
   render(`
     <div class="screen">
       <header class="topbar">
@@ -211,12 +256,62 @@ async function showAssetPicker(siteId) {
           </li>
         `).join('')}
       </ul>
+      ${isOwner ? `
+        <button type="button" class="secondary-btn" id="toggle-add-asset-btn">+ Add Asset</button>
+        <form id="add-asset-form" class="inline-form hidden">
+          <label>Label<input type="text" name="label" required placeholder="e.g. Kitchen Extinguisher"></label>
+          <label>Type
+            <select name="asset_type" required>
+              <option value="">Select type…</option>
+              <option value="fire_extinguisher">Fire Extinguisher</option>
+              <option value="alarm_system">Alarm System</option>
+              <option value="sprinkler_system">Sprinkler System</option>
+              <option value="kitchen_suppression">Kitchen Suppression</option>
+            </select>
+          </label>
+          <label>Inspection interval (days)<input type="number" name="interval_days" required min="1" value="90"></label>
+          <label>Install date (optional)<input type="date" name="install_date"></label>
+          <p id="add-asset-error" class="error"></p>
+          <button type="submit">Save Asset</button>
+        </form>
+      ` : ''}
     </div>
   `);
   document.getElementById('back-btn').addEventListener('click', showSitePicker);
   document.querySelectorAll('.list-item[data-asset-id]').forEach((el) => {
     el.addEventListener('click', () => showInspectionForm(el.dataset.assetId, siteId));
   });
+  if (isOwner) {
+    document.getElementById('toggle-add-asset-btn').addEventListener('click', () => {
+      document.getElementById('add-asset-form').classList.toggle('hidden');
+    });
+    document.getElementById('add-asset-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = new FormData(e.target);
+      const submitBtn = e.target.querySelector('button[type=submit]');
+      const errorEl = document.getElementById('add-asset-error');
+      errorEl.textContent = '';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving…';
+      const installDateStr = form.get('install_date');
+      const { res, data } = await apiJson(`/api/sites/${siteId}/assets`, {
+        method: 'POST',
+        body: {
+          label: form.get('label'),
+          asset_type: form.get('asset_type'),
+          interval_days: Number(form.get('interval_days')),
+          install_date: installDateStr ? new Date(installDateStr).getTime() : undefined,
+        },
+      });
+      if (res.status === 201) {
+        showAssetPicker(siteId);
+      } else {
+        errorEl.textContent = data?.error || 'Failed to create asset';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save Asset';
+      }
+    });
+  }
 }
 
 async function showInspectionForm(assetId, siteId) {

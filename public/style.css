@@ -132,3 +132,32 @@ button:disabled { opacity: 0.6; }
 #submit-error { margin-bottom: 8px; }
 .switch-link { text-align: center; font-size: 0.9rem; color: #666; margin-top: 16px; }
 .switch-link a { color: #1a4fd6; text-decoration: none; font-weight: 600; }
+.secondary-btn {
+  background: #eee;
+  color: #333;
+  margin-top: 10px;
+  font-weight: 500;
+}
+.inline-form {
+  background: white;
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 10px;
+}
+.inline-form select {
+  width: 100%;
+  padding: 12px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+.inline-form input[type=number], .inline-form input[type=date], .inline-form input[type=tel] {
+  width: 100%;
+  padding: 12px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+.hidden { display: none; }
