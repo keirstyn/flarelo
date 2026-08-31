@@ -32,6 +32,14 @@ import {
   handleDeficiencySummary,
   handleRecentInspections,
 } from './routes/office-dashboard.js';
+import { handleCreateComponent, handleListComponents, handleDeleteComponent } from './routes/components.js';
+import {
+  handleCreateChecklistTemplate,
+  handleListChecklistTemplates,
+  handleGetChecklistTemplate,
+  handleDeactivateChecklistTemplate,
+  handleAddChecklistTemplateItem,
+} from './routes/checklist-templates.js';
 
 const routes = [
   ['POST', '/api/auth/signup', handleSignup],
@@ -64,6 +72,14 @@ const routes = [
   ['GET', '/api/dashboard/overdue', handleOverdueAssets],
   ['GET', '/api/dashboard/deficiency-summary', handleDeficiencySummary],
   ['GET', '/api/dashboard/recent-inspections', handleRecentInspections],
+  ['POST', '/api/assets/:assetId/components', handleCreateComponent],
+  ['GET', '/api/assets/:assetId/components', handleListComponents],
+  ['DELETE', '/api/components/:id', handleDeleteComponent],
+  ['POST', '/api/checklist-templates', handleCreateChecklistTemplate],
+  ['GET', '/api/checklist-templates', handleListChecklistTemplates],
+  ['GET', '/api/checklist-templates/:id', handleGetChecklistTemplate],
+  ['DELETE', '/api/checklist-templates/:id', handleDeactivateChecklistTemplate],
+  ['POST', '/api/checklist-templates/:id/items', handleAddChecklistTemplateItem],
 ];
 
 function matchRoute(pattern, pathname) {

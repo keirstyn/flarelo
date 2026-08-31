@@ -135,3 +135,94 @@ CREATE TABLE deficiencies (
 CREATE INDEX idx_deficiencies_company_status ON deficiencies(company_id, status);
 CREATE INDEX idx_deficiencies_inspection ON deficiencies(inspection_id);
 CREATE INDEX idx_deficiencies_asset ON deficiencies(asset_id);
+-- A configurable, editable definition of "what to check" — the
+-- intended eventual replacement for the hardcoded CHECKLISTS object
+-- in src/lib/checklists.js. Scoped per-company: each company owns and
+-- can eventually edit its own templates rather than sharing one
+-- Flarelo-wide definition. No content is seeded here — this is schema
+-- only. Real checklist content must come from a qualified
+-- professional, not from this design pass.
+CREATE TABLE checklist_templates (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id),
+  asset_type TEXT NOT NULL CHECK (
+    asset_type IN ('fire_extinguisher', 'alarm_system', 'sprinkler_system', 'kitchen_suppression')
+  ),
+  name TEXT NOT NULL,
+  -- Freeform label the company chooses (e.g. "Monthly Visual",
+  -- "Annual Maintenance") — NOT a hardcoded interval. The asset's own
+  -- interval_days still governs scheduling exactly as it does today;
+  -- this is descriptive only, so a company can maintain more than one
+  -- checklist per asset_type for different kinds of visits.
+  frequency_label TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX idx_checklist_templates_company_type ON checklist_templates(company_id, asset_type);
+-- Individual line items within a template. applies_to distinguishes
+-- system-level items (answered once per inspection, same as today's
+-- flat checklist) from component-level items (answered once per
+-- individual device — see asset_components below).
+CREATE TABLE checklist_template_items (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id),
+  checklist_template_id TEXT NOT NULL REFERENCES checklist_templates(id),
+  item_key TEXT NOT NULL,
+  label TEXT NOT NULL,
+  applies_to TEXT NOT NULL CHECK (applies_to IN ('system', 'component')),
+  -- Only meaningful when applies_to = 'component' — which kind of
+  -- device this item is relevant to (e.g. 'smoke_detector'). NULL for
+  -- system-level items.
+  component_type TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX idx_checklist_items_template ON checklist_template_items(checklist_template_id);
+-- An individual physical device/component belonging to a system-type
+-- asset (e.g. one specific smoke detector within an alarm_system
+-- asset). component_type is intentionally freeform text, not a fixed
+-- enum — unlike the four top-level asset types (which are a hard
+-- constraint), real device taxonomies vary too much by manufacturer
+-- and system to hardcode a fixed list here. An asset with zero
+-- components (e.g. every fire_extinguisher) behaves exactly as it
+-- does today — this table is purely additive.
+CREATE TABLE asset_components (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id),
+  asset_id TEXT NOT NULL REFERENCES assets(id),
+  component_type TEXT NOT NULL,
+  label TEXT NOT NULL,
+  location_note TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX idx_asset_components_asset ON asset_components(asset_id);
+-- Per-component results for one inspection visit. One inspections row
+-- is still one visit / one PDF / one next_due_at update, exactly as
+-- today — this table holds the additional per-device detail for
+-- systems that have components. results_json mirrors the existing
+-- inspections.checklist_json pattern (same shape, same reasoning) —
+-- deliberately not a fully normalized answers table, to stay
+-- consistent with how system-level answers already work.
+CREATE TABLE inspection_component_results (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id),
+  inspection_id TEXT NOT NULL REFERENCES inspections(id),
+  asset_component_id TEXT NOT NULL REFERENCES asset_components(id),
+  results_json TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX idx_inspection_component_results_inspection ON inspection_component_results(inspection_id);
+CREATE INDEX idx_inspection_component_results_component ON inspection_component_results(asset_component_id);
+-- Two additive columns on EXISTING tables — both nullable, both
+-- backward compatible with every row that already exists.
+--
+-- inspections.checklist_template_id: which template governed this
+-- specific visit, frozen at submit time — so editing a template later
+-- never rewrites what an old inspection says it checked. NULL for any
+-- inspection submitted before templates exist (all of them, today).
+ALTER TABLE inspections ADD COLUMN checklist_template_id TEXT REFERENCES checklist_templates(id);
+-- deficiencies.asset_component_id: lets a deficiency point at a
+-- specific device instead of just the system as a whole. NULL means
+-- "system-level deficiency", exactly today's behavior — fully
+-- backward compatible with every deficiency that already exists.
+ALTER TABLE deficiencies ADD COLUMN asset_component_id TEXT REFERENCES asset_components(id);
